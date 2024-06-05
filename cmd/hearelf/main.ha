@@ -2,32 +2,50 @@ use elf;
 use encoding::hex;
 use fmt;
 use fs;
+use getopt;
 use io;
 use os;
 
 export fn main() void = {
-	if (len(os::args) == 1) {
-		fmt::fatal("no argments given");
-	};
-	const file = match (os::open(os::args[1])) {
-	case let err: fs::error =>
-		fmt::fatalf("error {} opening file {}\n", fs::strerror(err), os::args[1]);
-	case let file: io::file =>
-		yield file;
-	};
-	defer io::close(file)!;
+	const cmd = getopt::parse(os::args,
+		"hearelf",
+		('H', "display header"),
+		"file",
+	);
+	defer getopt::finish(&cmd);
 
-	const file = io::drain(file)!;
-	defer free(file);
-
-	const header = match (elf::readheader(file)) {
-	case elf::headererr =>
-		fmt::fatal("header invalid");
-	case let head: elf::header =>
-		yield head;
+	let head = false;
+	for (let opt .. cmd.opts) {
+		switch (opt.0) {
+		case 'H' =>
+			head = true;
+		case => abort();
+		};
 	};
 
-	displayheader(header);
+	for (let arg .. cmd.args) {
+		const file = match (os::open(arg)) {
+		case let err: fs::error =>
+			fmt::fatalf("error opening {} caused by {}", arg, fs::strerror(err));
+		case let file: io::file =>
+			yield file;
+		};
+		const file = io::drain(file)!;
+		defer free(file);
+
+		const header = match (elf::readheader(file)) {
+		case elf::headererr =>
+			fmt::fatal("header invalid");
+		case let head: elf::header =>
+			yield head;
+		};
+
+		fmt::printf("File {}\n", arg)!;
+
+		if (head) {
+			displayheader(header);
+		};
+	};
 };
 
 fn displayheader(header: elf::header) void = {
