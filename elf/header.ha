@@ -69,3 +69,33 @@ export fn readheader(file: []u8) (header | headererr) = {
 	header.shstrndx = conv.getu16(file[index+14..index+16]);
 	return header;
 };
+
+// Stringenizes an data from an elf header
+export fn strfields(header: header) (str, str, str) = {
+	let class: str = "";
+	let data: str = "";
+	let etype: str = "";
+
+	if (header.ident[4] == 1) {
+		class = "ELF32";
+	} else if (header.ident[4] == 2) {
+		class = "ELF64";
+	};
+
+	if (header.ident[5] == 1) {
+		data = "2's complement little endian";
+	} else if (header.ident[5] == 2) {
+		data = "2's complement big endian";
+	};
+
+	switch (header.etype) {
+	case 0 => etype = "NONE";
+	case 1 => etype = "REL";
+	case 2 => etype = "EXEC";
+	case 3 => etype = "DYN";
+	case 4 => etype = "CORE";
+	case => abort();
+	};
+
+	return (class, data, etype);
+};
